@@ -5,9 +5,8 @@ from app.core.config import settings
 from app.models import Base
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 target_metadata = Base.metadata
 
 def run_migrations_offline():
@@ -17,10 +16,18 @@ def run_migrations_offline():
         context.run_migrations()
 
 def run_migrations_online():
+    # Tests (and other callers) may hand in an open connection via config.attributes["connection"].
+    connection = config.attributes.get("connection")
+    if connection is not None:
+        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+    config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
     connectable = engine_from_config(config.get_section(config.config_ini_section), prefix="sqlalchemy.",
                                      poolclass=pool.NullPool)
-    with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
+    with connectable.connect() as live_connection:
+        context.configure(connection=live_connection, target_metadata=target_metadata, compare_type=True)
         with context.begin_transaction():
             context.run_migrations()
 

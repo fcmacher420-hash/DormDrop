@@ -1,6 +1,42 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DormDrop · Campus marketplace</title><link rel="stylesheet" href="/static/styles.css"></head>
-<body data-page="auth"><header><a class="brand" href="/">Dorm<span>Drop</span></a><nav><a href="/static/marketplace.html">Marketplace</a><span id="account-nav"></span></nav></header>
-<main><section class="hero"><div><span class="eyebrow">Your campus, in circulation</span><h1>Good finds.<br>Close by.</h1><p>Buy and sell the things students need, right in your campus community.</p><div class="hero-actions"><a class="button" href="/static/marketplace.html">Explore marketplace</a><a class="quiet button" href="#account">Join DormDrop</a></div></div><div class="hero-art">DD</div></section><div id="notice" class="notice"></div>
-<section id="account" class="auth-grid"><article class="panel"><h2>Welcome back</h2><p class="muted">Sign in to shop, sell and keep up with your orders.</p><form id="login-form" class="form-stack"><label>University email<input name="email" type="email" placeholder="you@university.edu" required></label><label>Password<input name="password" type="password" required></label><button>Sign in</button></form></article>
-<article class="panel"><h2>Create your account</h2><p class="muted">A verified .edu email keeps DormDrop campus-only.</p><form id="signup-form" class="form-stack"><label>.edu email<input name="email" type="email" placeholder="you@university.edu" required></label><label>Password<input name="password" type="password" minlength="8" required></label><label>Campus<input name="campus" required></label><label>Residence or dorm<input name="dorm" required></label><button>Create account</button></form><hr><h3>Verify your email</h3><form id="verify-form" class="form-stack"><label>Development verification token<input id="verify-token" name="token" required></label><button class="quiet">Verify email</button></form><small>Verification email delivery is mocked. The token appears after signup.</small></article></section></main><footer>DormDrop · Student-powered, campus-local</footer><script src="/static/js/app.js"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0649a8">
+  <title>DormDrop · Your campus marketplace</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body data-page="auth">
+  <header>
+    <a class="brand" href="/">Dorm<span>Drop</span><small>Bridging students and wholesalers online</small></a>
+    <nav aria-label="Main navigation">
+      <a href="/">Home</a><a href="/static/marketplace.html">Browse products</a><a href="/static/about.html">About</a><a href="/static/partners.html">Partners</a><a href="/static/seller-registration.html">Sell with us</a><a href="#account">Join DormDrop</a>
+      <span id="account-nav"></span>
+    </nav>
+  </header>
+  <div class="updates-bar"><strong>Made for campus life</strong><span>Discover everyday essentials from students and local sellers.</span></div>
+  <main>
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Your campus marketplace</span>
+        <h1>Everything for campus life, all in one place.</h1>
+        <p>Shop useful finds, discover local sellers and keep great things moving around your university community.</p>
+        <div class="hero-actions"><a class="button" href="/static/marketplace.html">Browse products</a><a class="quiet button" href="#account">Join as a buyer</a><a class="quiet button" href="/static/seller-registration.html">Join as a seller</a></div>
+      </div>
+    </section>
+    <section class="category-section" aria-labelledby="categories-title">
+      <div class="category-heading"><div><span class="eyebrow">Shop by category</span><h2 id="categories-title">A little bit of everything</h2></div><p>Find what you need close to home.</p></div>
+      <div id="home-categories" class="category-grid"></div>
+    </section>
+    <div id="notice" class="notice" role="status"></div>
+    <section id="account" class="auth-grid">
+      <article class="panel"><span class="eyebrow">Welcome back</span><h2>Sign in to DormDrop</h2><p class="muted">Continue to your buyer or seller account.</p><form id="login-form" class="form-stack"><label>Email address<input name="email" type="email" placeholder="student or supplier email" required></label><label>Password<input name="password" type="password" required></label><button>Sign in</button></form></article>
+      <article class="panel"><span class="eyebrow">Join the community</span><h2>Create a buyer account</h2><p class="muted">Student buyers register separately from suppliers.</p><form id="signup-form" class="form-stack"><input type="hidden" name="account_type" value="buyer"><label>University email address<input name="email" type="email" placeholder="you@university.edu" required></label><label>Password<input name="password" type="password" minlength="8" required></label><label>Campus<input name="campus" required></label><label>Residence or dorm<input name="dorm" required></label><button>Create buyer account</button></form><p class="muted section">Are you a supplier? <a href="/static/seller-registration.html">Use the separate seller registration form</a>.</p><hr><details><summary>Already have a verification token?</summary><form id="verify-form" class="form-stack section"><label>Development verification token<input id="verify-token" name="token" required></label><button class="quiet">Verify email</button></form><small>Email verification is mocked for this prototype; the token appears after signup.</small></details></article>
+    </section>
+  </main>
+  <footer><strong>DormDrop</strong> · Student-powered, campus-local</footer>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
+

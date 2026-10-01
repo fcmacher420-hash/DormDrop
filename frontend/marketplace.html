@@ -1,1 +1,29 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Marketplace · DormDrop</title><link rel="stylesheet" href="/static/styles.css"></head><body data-page="marketplace"><header><a class="brand" href="/">Dorm<span>Drop</span></a><nav><a href="/static/marketplace.html">Browse</a><a href="/static/cart.html">Cart</a><a href="/static/orders.html">Orders</a><a href="/static/seller-dashboard.html">Sell</a><span id="account-nav"></span></nav></header><main><div class="section-title"><div><span class="eyebrow">Campus marketplace</span><h1>Find your next good thing.</h1></div><a class="button" href="/static/cart.html">View cart</a></div><form id="filters" class="filters"><input name="category" placeholder="Category"><input name="min_price" type="number" placeholder="Min price"><input name="max_price" type="number" placeholder="Max price"><input name="max_weight" type="number" step=".1" placeholder="Max kg"><input name="max_length_cm" type="number" placeholder="Max length cm"><input name="max_width_cm" type="number" placeholder="Max width cm"><input name="max_height_cm" type="number" placeholder="Max height cm"><input name="campus" placeholder="Campus"><input name="dorm" placeholder="Dorm"><button>Filter</button></form><div id="notice" class="notice"></div><section id="listing-grid" class="grid"></section></main><script src="/static/js/app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Browse products · DormDrop</title><link rel="stylesheet" href="/static/styles.css"></head>
+<body data-page="marketplace">
+  <header><a class="brand" href="/">Dorm<span>Drop</span><small>Bridging students and wholesalers online</small></a><nav aria-label="Main navigation"><a href="/">Home</a><a href="/static/marketplace.html">Browse products</a><a href="/static/about.html">About</a><a href="/static/partners.html">Partners</a><a href="/static/cart.html">Cart</a><a href="/static/orders.html">Orders</a><a href="/static/seller-registration.html">Sell</a><span id="account-nav"></span></nav></header>
+  <div class="updates-bar"><strong>Shop local. Shop campus.</strong><span>Fresh finds from sellers in your student community.</span></div>
+  <main>
+    <section class="hero"><div><span class="eyebrow">DormDrop marketplace</span><h1>Explore a world of products.</h1><p>From everyday essentials to special finds, browse products offered by students and local sellers.</p><div class="hero-actions"><a class="button" href="#products">Browse listings</a><a class="quiet button" href="/static/seller-dashboard.html">Become a seller</a></div></div></section>
+    <section class="category-section" aria-labelledby="categories-title"><div class="category-heading"><div><span class="eyebrow">Find your category</span><h2 id="categories-title">Shop what you need</h2></div><p>Choose a category to narrow your search.</p></div>
+      <div id="browse-categories" class="category-grid"></div>
+    </section>
+    <div id="notice" class="notice" role="status"></div>
+    <section id="products"><div class="section-title"><div><span class="eyebrow">Campus marketplace</span><h1>Browse all listings</h1></div><a class="button" href="/static/cart.html">View cart</a></div>
+      <form id="filters" class="filters">
+        <input class="filter-wide" name="category" placeholder="Search category" aria-label="Category">
+        <input name="min_price" type="number" placeholder="Min price" aria-label="Minimum price">
+        <input name="max_price" type="number" placeholder="Max price" aria-label="Maximum price">
+        <input name="campus" placeholder="Campus" aria-label="Campus">
+        <input name="dorm" placeholder="Residence or dorm" aria-label="Residence or dorm">
+        <details class="filter-wide"><summary>More filters: weight and dimensions</summary><div class="form-stack section"><label>Max weight (kg)<input name="max_weight" type="number" step=".1" placeholder="Any weight"></label><label>Max length (cm)<input name="max_length_cm" type="number" placeholder="Any length"></label><label>Max width (cm)<input name="max_width_cm" type="number" placeholder="Any width"></label><label>Max height (cm)<input name="max_height_cm" type="number" placeholder="Any height"></label></div></details>
+        <button>Apply filters</button>
+      </form>
+      <section id="listing-grid" class="grid" aria-live="polite"></section>
+    </section>
+  </main>
+  <footer><strong>DormDrop</strong> · Student-powered, campus-local</footer>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

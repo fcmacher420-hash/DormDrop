@@ -17,7 +17,7 @@ def test_order_id_format_and_collision_retry(db):
 
 def test_checkout_commits_order_stock_cart_and_commission_atomically(db):
     buyer = User(email="buyer@campus.edu", password_hash="x", campus="Campus", dorm="Hall", is_verified=True)
-    seller = User(email="seller@campus.edu", password_hash="x", campus="Campus", dorm="Hall", is_verified=True, is_seller=True)
+    seller = User(email="seller@campus.edu", password_hash="x", campus="Campus", dorm="Hall", is_verified=True, is_seller=True, account_type="seller")
     db.add_all([buyer, seller]); db.flush()
     listing = Listing(seller_id=seller.id, title="Book", description="Used book", category="Books", price=100,
                       length_cm=10, width_cm=10, height_cm=10, weight_kg=1, quantity=3, status="approved")

@@ -1,11 +1,19 @@
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
+from decimal import Decimal
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 
 def utcnow():
     return datetime.now(timezone.utc)
+
+
+# Money is exact fixed-point (never FLOAT). Measurements use double precision: on MySQL a bare
+# Float is single precision, so Float(53) is requested to map to DOUBLE.
+Money = Numeric(12, 2)
+Rate = Numeric(6, 4)
+Measure = Float(53)
 
 
 class User(Base):
@@ -15,11 +23,18 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     campus: Mapped[str] = mapped_column(String(150))
     dorm: Mapped[str] = mapped_column(String(150))
+    account_type: Mapped[str] = mapped_column(String(20), default="buyer")
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    business_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    contact_person: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    business_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    product_types: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     is_seller: Mapped[bool] = mapped_column(Boolean, default=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_suspended: Mapped[bool] = mapped_column(Boolean, default=False)
-    rating_avg: Mapped[float] = mapped_column(Float, default=0)
+    rating_avg: Mapped[float] = mapped_column(Measure, default=0)
     verification_token: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -40,11 +55,11 @@ class Listing(Base):
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text)
     category: Mapped[str] = mapped_column(String(100), index=True)
-    price: Mapped[float] = mapped_column(Float)
-    length_cm: Mapped[float] = mapped_column(Float)
-    width_cm: Mapped[float] = mapped_column(Float)
-    height_cm: Mapped[float] = mapped_column(Float)
-    weight_kg: Mapped[float] = mapped_column(Float)
+    price: Mapped[Decimal] = mapped_column(Money)
+    length_cm: Mapped[float] = mapped_column(Measure)
+    width_cm: Mapped[float] = mapped_column(Measure)
+    height_cm: Mapped[float] = mapped_column(Measure)
+    weight_kg: Mapped[float] = mapped_column(Measure)
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String(30), default="pending_approval", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -63,7 +78,7 @@ class CartItem(Base):
     __tablename__ = "cart_items"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     buyer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id"), index=True)
+    listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), index=True)
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     __table_args__ = (UniqueConstraint("buyer_id", "listing_id", name="uq_cart_buyer_listing"),)
 
@@ -73,9 +88,9 @@ class Order(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     order_id: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     buyer_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    subtotal: Mapped[float] = mapped_column(Float)
-    shipping_fee: Mapped[float] = mapped_column(Float)
-    total: Mapped[float] = mapped_column(Float)
+    subtotal: Mapped[Decimal] = mapped_column(Money)
+    shipping_fee: Mapped[Decimal] = mapped_column(Money)
+    total: Mapped[Decimal] = mapped_column(Money)
     status: Mapped[str] = mapped_column(String(30), default="awaiting_pickup", index=True)
     payment_method: Mapped[str] = mapped_column(String(30))
     payment_ref: Mapped[str] = mapped_column(String(120))
@@ -89,16 +104,16 @@ class OrderItem(Base):
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
     listing_id: Mapped[int] = mapped_column(ForeignKey("listings.id"))
     quantity: Mapped[int] = mapped_column(Integer)
-    unit_price: Mapped[float] = mapped_column(Float)
-    item_shipping_fee: Mapped[float] = mapped_column(Float)
+    unit_price: Mapped[Decimal] = mapped_column(Money)
+    item_shipping_fee: Mapped[Decimal] = mapped_column(Money)
 
 
 class Commission(Base):
     __tablename__ = "commissions"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"), index=True)
-    amount: Mapped[float] = mapped_column(Float)
-    rate: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Money)
+    rate: Mapped[Decimal] = mapped_column(Rate)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -106,7 +121,7 @@ class SellerPayout(Base):
     __tablename__ = "seller_payouts"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     seller_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    amount: Mapped[float] = mapped_column(Float)
+    amount: Mapped[Decimal] = mapped_column(Money)
     reference: Mapped[str] = mapped_column(String(120))
     processed_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -117,7 +132,7 @@ class Message(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     receiver_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    listing_id: Mapped[int | None] = mapped_column(ForeignKey("listings.id"), nullable=True)
+    listing_id: Mapped[int | None] = mapped_column(ForeignKey("listings.id", ondelete="SET NULL"), nullable=True)
     order_id: Mapped[int | None] = mapped_column(ForeignKey("orders.id"), nullable=True)
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import current_user, seller_user, admin_user
-from app.models import Listing, ListingImage, OrderItem, User
+from app.models import CartItem, Listing, ListingImage, Message, OrderItem, User
 from app.schemas.schemas import ListingIn
 
 router = APIRouter(tags=["listings"])
+
+def require_seller_or_admin(user: User) -> None:
+    if not user.is_admin and (user.account_type != "seller" or not user.is_seller or not user.is_verified):
+        raise HTTPException(403, "Approved, verified seller access required")
 
 def output(item: Listing):
     return {"id": item.id, "seller_id": item.seller_id, "title": item.title, "description": item.description,
@@ -32,7 +36,7 @@ def browse(category: str | None = None, min_price: float | None = None, max_pric
           campus: str | None = None, dorm: str | None = None,
           db: Session = Depends(get_db)):
     query = select(Listing).join(User, Listing.seller_id == User.id).where(Listing.status == "approved", Listing.quantity > 0)
-    if category: query = query.where(Listing.category == category)
+    if category: query = query.where(func.lower(Listing.category) == category.strip().lower())
     if min_price is not None: query = query.where(Listing.price >= min_price)
     if max_price is not None: query = query.where(Listing.price <= max_price)
     if max_weight is not None: query = query.where(Listing.weight_kg <= max_weight)
@@ -50,8 +54,8 @@ def detail(listing_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Listing not found")
     data = output(item)
     seller = db.get(User, item.seller_id)
-    data["seller"] = {"id": seller.id, "email": seller.email, "campus": seller.campus,
-                      "dorm": seller.dorm, "rating_avg": seller.rating_avg}
+    # No email here: this endpoint is public, so contact happens through in-app chat.
+    data["seller"] = {"id": seller.id, "campus": seller.campus, "dorm": seller.dorm, "rating_avg": seller.rating_avg}
     return data
 
 @router.post("/listings", status_code=201)
@@ -64,7 +68,8 @@ def create(payload: ListingIn, db: Session = Depends(get_db), user: User = Depen
     return output(item)
 
 @router.put("/listings/{listing_id}")
-def update(listing_id: int, payload: ListingIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def update_listing(listing_id: int, payload: ListingIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    require_seller_or_admin(user)
     item = db.get(Listing, listing_id)
     if not item: raise HTTPException(404, "Listing not found")
     if not user.is_admin and item.seller_id != user.id: raise HTTPException(403, "Not your listing")
@@ -72,17 +77,23 @@ def update(listing_id: int, payload: ListingIn, db: Session = Depends(get_db), u
     return output(item)
 
 @router.delete("/listings/{listing_id}", status_code=204)
-def delete(listing_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def delete_listing(listing_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    require_seller_or_admin(user)
     item = db.get(Listing, listing_id)
     if not item: raise HTTPException(404, "Listing not found")
     if not user.is_admin and item.seller_id != user.id: raise HTTPException(403, "Not your listing")
     if db.scalar(select(OrderItem.id).where(OrderItem.listing_id == item.id)):
         raise HTTPException(409, "A listing in an order cannot be deleted; mark it sold instead")
+    # Clear references first so MySQL foreign keys cannot reject the delete: drop it from carts,
+    # keep chat history but detach it from the listing.
+    db.execute(delete(CartItem).where(CartItem.listing_id == item.id))
+    db.execute(update(Message).where(Message.listing_id == item.id).values(listing_id=None))
     db.delete(item)
     db.commit()
 
 @router.post("/listings/{listing_id}/sold")
 def mark_sold(listing_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    require_seller_or_admin(user)
     item = db.get(Listing, listing_id)
     if not item: raise HTTPException(404, "Listing not found")
     if not user.is_admin and item.seller_id != user.id: raise HTTPException(403, "Not your listing")

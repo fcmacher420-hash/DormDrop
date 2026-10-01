@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0649a8">
+  <title>Seller Registration · DormDrop</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body data-page="seller-register">
+  <header><a class="brand" href="/">Dorm<span>Drop</span><small>Bridging students and wholesalers online</small></a><nav aria-label="Main navigation"><a href="/">Home</a><a href="/static/about.html">About</a><a href="/static/partners.html">Partners</a><span id="account-nav"></span></nav></header>
+  <div class="updates-bar"><strong>Supplier onboarding</strong><span>Join DormDrop and connect your products with campus communities.</span></div>
+  <main class="seller-register-page">
+    <section class="seller-register-heading"><span class="eyebrow">Join our supplier network</span><h1>Become a DormDrop partner</h1><p>Complete the registration form to introduce your company and products to students. After email verification, your supplier profile will appear in Partners; seller approval is managed separately.</p></section>
+    <div id="notice" class="notice" role="status"></div>
+    <section class="seller-register-card panel">
+      <h2>Partner Registration Form</h2>
+      <form id="signup-form" class="form-stack">
+        <input type="hidden" name="account_type" value="seller">
+        <label>Company Name<input name="business_name" placeholder="Enter your company name" minlength="2" required></label>
+        <label>Contact Person<input name="contact_person" placeholder="Enter your name" minlength="2" required></label>
+        <label>Email Address<input name="email" type="email" placeholder="supplier@company.com" required></label>
+        <label>Password<input name="password" type="password" minlength="8" required></label>
+        <label>Phone Number<input name="phone" type="tel" placeholder="Include country code, e.g. +86" minlength="7" required></label>
+        <label>Company Description<textarea name="business_description" rows="4" minlength="10" placeholder="Describe your company and services" required></textarea></label>
+        <label>Type of Products / Services<input name="product_types" placeholder="Products your company provides" minlength="2" required></label>
+        <label>Region / Country<input name="country" placeholder="Lusaka, China, Japan, or your location" minlength="2" required></label>
+        <p class="form-privacy-note">Your verified supplier profile, including the contact email and phone number entered here, will be visible on the public Partners page.</p>
+        <button type="submit">Submit Registration</button>
+      </form>
+      <hr>
+      <details id="verify-details"><summary>Verify your email</summary><form id="verify-form" class="form-stack section"><label>Development verification token<input id="verify-token" name="token" required></label><button class="quiet">Verify email</button></form><small>Email verification is mocked for this prototype; the token appears after registration.</small></details>
+    </section>
+    <p class="seller-register-help">Already registered? <a href="/">Return home to sign in</a>.</p>
+  </main>
+  <footer><strong>DormDrop</strong> · Student-powered, campus-local · <a href="/static/partners.html">Meet our partners</a></footer>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -25,6 +25,11 @@ def admin_user(user: User = Depends(current_user)) -> User:
     return user
 
 def seller_user(user: User = Depends(current_user)) -> User:
-    if not user.is_seller or not user.is_verified:
+    if user.account_type != "seller" or not user.is_seller or not user.is_verified:
         raise HTTPException(403, "Approved, verified seller access required")
+    return user
+
+def buyer_user(user: User = Depends(current_user)) -> User:
+    if user.account_type != "buyer":
+        raise HTTPException(403, "This action is available to buyer accounts only")
     return user

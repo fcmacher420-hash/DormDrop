@@ -1,19 +1,7 @@
-from app.core.security import create_access_token
-from app.models import User
-
-def test_buyer_seller_admin_listing_checkout_tracking_review_and_chat(client):
-    db_override = __import__("app.core.database", fromlist=["get_db"]).get_db
-    db_gen = client.app.dependency_overrides[db_override]()
-    db = next(db_gen)
-    buyer = User(email="buyer@campus.edu", password_hash="x", campus="Campus", dorm="Hall", is_verified=True)
-    seller = User(email="seller@campus.edu", password_hash="x", campus="Campus", dorm="Hall", is_verified=True, is_seller=True)
-    admin = User(email="admin@campus.edu", password_hash="x", campus="Campus", dorm="Admin", is_verified=True, is_admin=True)
-    db.add_all([buyer, seller, admin]); db.commit()
-    buyer_id, seller_id, admin_id = buyer.id, seller.id, admin.id
-    db.close()
-    buyer_headers = {"Authorization": f"Bearer {create_access_token(buyer_id)}"}
-    seller_headers = {"Authorization": f"Bearer {create_access_token(seller_id)}"}
-    admin_headers = {"Authorization": f"Bearer {create_access_token(admin_id)}"}
+def test_buyer_seller_admin_listing_checkout_tracking_review_and_chat(client, make_user):
+    buyer_id, buyer_headers = make_user("buyer@campus.edu")
+    seller_id, seller_headers = make_user("seller@campus.edu", is_seller=True)
+    admin_id, admin_headers = make_user("admin@campus.edu", is_admin=True)
 
     listing_payload = {"title": "Desk chair", "description": "Good condition", "category": "Furniture",
                        "price": 120, "length_cm": 10, "width_cm": 20, "height_cm": 10,
