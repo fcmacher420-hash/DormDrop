@@ -20,6 +20,12 @@ def pricing_defaults(monkeypatch):
     monkeypatch.setattr(settings, "currency", "ZMW")
 
 
+@pytest.fixture(autouse=True)
+def buyer_email_policy(monkeypatch):
+    """Keep buyer signup tests aligned with the Gmail-only signup policy."""
+    monkeypatch.setattr(settings, "allowed_email_suffixes", ".gmail.com")
+
+
 @pytest.fixture
 def session_factory():
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)

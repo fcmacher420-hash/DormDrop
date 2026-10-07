@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     admin_email: str = "admin@dormdrop.edu"
     admin_password: str = "ChangeMe123!"
     cors_origins: str = "*"
-    # Comma-separated email endings accepted at signup, e.g. ".edu,.ac.zm".
-    allowed_email_suffixes: str = ".edu"
+    # Comma-separated email endings accepted for buyer signup, e.g. ".gmail.com,.ac.zm".
+    allowed_email_suffixes: str = ".gmail.com"
     # Creates seller@demo.edu with a publicly documented password; must be off in production.
     seed_demo_data: bool = True
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

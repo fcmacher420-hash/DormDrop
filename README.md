@@ -1,6 +1,6 @@
 # DormDrop
 
-DormDrop is a campus marketplace prototype built with FastAPI, SQLAlchemy, Alembic, MySQL, and plain HTML/CSS/JavaScript. Student buyer accounts use a university email and campus/residence profile. Seller accounts are a separate account type and can register with an international business email, country, and business name; an admin must approve a seller before they can list products. Each account has one role.
+DormDrop is a campus marketplace prototype built with FastAPI, SQLAlchemy, Alembic, MySQL, and plain HTML/CSS/JavaScript. Buyer accounts use a Gmail address and campus/residence profile. Seller accounts are a separate account type and can register with an international business email, country, and business name; an admin must approve a seller before they can list products. Each account has one role.
 
 The home and browse pages show clickable product categories. A category opens its own page with approved listings filtered to that category. Available category names are Food, Clothing, Shoes, Electronics, Furniture, Personal Care, Stationery, Bags & Backpacks, Dorm Essentials, Cleaning & Laundry, Kitchenware, Sports & Fitness, and Books. Category image attributions are documented in [frontend/IMAGE-SOURCES.md](frontend/IMAGE-SOURCES.md).
 
@@ -39,7 +39,7 @@ Extra settings (all optional, set in `.env`):
 | Setting | Default | Purpose |
 |---|---|---|
 | `APP_ENV` | `development` | With `production`, the app refuses to start on the default `SECRET_KEY`, the default admin password, a key shorter than 32 characters, or `SEED_DEMO_DATA=true`. |
-| `ALLOWED_EMAIL_SUFFIXES` | `.edu` | Comma-separated email endings accepted at signup, e.g. `.edu,.ac.zm`. |
+| `ALLOWED_EMAIL_SUFFIXES` | `.gmail.com` | Comma-separated email endings accepted for buyer signup, e.g. `.gmail.com,.ac.zm`. |
 | `SEED_DEMO_DATA` | `true` | Creates the demo seller and sample listing. |
 
 Money is stored as `NUMERIC(12,2)` and calculated with `Decimal`, rounded half-up to whole cents. Measurements are double precision.

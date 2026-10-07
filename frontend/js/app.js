@@ -66,6 +66,92 @@ async function attempt(action) {
 
 function formData(form) { return Object.fromEntries(new FormData(form)); }
 
+function refreshCartBadge() {
+  const badges = $$('[data-cart-count]');
+  if (!badges.length || !token() || currentUser().account_type !== 'buyer') return;
+  return api('/cart').then(cart => {
+    const count = cart.items.reduce((total, item) => total + Number(item.quantity || 0), 0);
+    badges.forEach(badge => {
+      badge.textContent = count;
+      badge.hidden = count === 0;
+      badge.setAttribute('aria-label', `${count} items in cart`);
+    });
+  }).catch(() => {});
+}
+
+function animateCartAdd(button) {
+  const cartLink = $('[data-cart-link]');
+  if (!cartLink || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const from = button.getBoundingClientRect();
+  const to = cartLink.getBoundingClientRect();
+  const fly = document.createElement('span');
+  fly.className = 'cart-fly';
+  fly.textContent = '+1';
+  fly.setAttribute('aria-hidden', 'true');
+  fly.style.left = `${from.left + from.width / 2}px`;
+  fly.style.top = `${from.top + from.height / 2}px`;
+  document.body.append(fly);
+  const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+  const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+  const animation = fly.animate([
+    {transform: 'translate(-50%, -50%) scale(1)', opacity: 1},
+    {transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.3)`, opacity: 0}
+  ], {duration: 650, easing: 'cubic-bezier(.2,.8,.25,1)'});
+  animation.onfinish = () => fly.remove();
+  cartLink.classList.remove('cart-pulse');
+  void cartLink.offsetWidth;
+  cartLink.classList.add('cart-pulse');
+  window.setTimeout(() => cartLink.classList.remove('cart-pulse'), 550);
+}
+
+async function addListingToCart(listingId, quantity, button) {
+  if (!token()) return notice('Sign in with a buyer account to add items to your cart.', 'error');
+  if (currentUser().account_type !== 'buyer') return notice('Only buyer accounts can add items to a cart.', 'error');
+  if (!Number.isInteger(quantity) || quantity < 1) return notice('Choose a valid quantity first.', 'error');
+  const originalLabel = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Adding…';
+  const added = await attempt(() => api('/cart/items', {
+    method: 'POST', body: JSON.stringify({listing_id: Number(listingId), quantity})
+  }));
+  if (added) {
+    button.textContent = 'Added ✓';
+    button.classList.add('added-to-cart');
+    animateCartAdd(button);
+    await refreshCartBadge();
+  }
+  window.setTimeout(() => {
+    button.disabled = false;
+    button.textContent = originalLabel;
+    button.classList.remove('added-to-cart');
+  }, added ? 1100 : 350);
+}
+
+function setupCartControls() {
+  $$('a[href="/static/cart.html"]').forEach(link => {
+    link.dataset.cartLink = 'true';
+    link.classList.add('cart-nav-link');
+    if (!$('[data-cart-count]', link)) {
+      const badge = document.createElement('span');
+      badge.className = 'cart-count';
+      badge.dataset.cartCount = '';
+      badge.hidden = true;
+      badge.setAttribute('aria-label', '0 items in cart');
+      link.append(' ', badge);
+    }
+  });
+  document.addEventListener('click', event => {
+    const button = event.target.closest?.('[data-add-cart]');
+    if (!button) return;
+    event.preventDefault();
+    const quantity = button.dataset.addQuantity
+      ? Number($(button.dataset.addQuantity)?.value)
+      : Number(button.dataset.quantity || 1);
+    addListingToCart(button.dataset.addCart, quantity, button);
+  });
+  refreshCartBadge();
+}
+
 function renderNav() {
   const el = $('#account-nav');
   if (!el) return;
@@ -85,16 +171,21 @@ function categoryImage(category) {
   return categories.find(x => x.name.toLowerCase() === String(category || '').toLowerCase())?.image || '/static/images/image7.jpg';
 }
 
-const card = item => `<a class="item-card" href="/static/listing.html?id=${Number(item.id)}">` +
+const card = item => `<article class="item-card">` +
+  `<a class="item-card-link" href="/static/listing.html?id=${Number(item.id)}">` +
   `<div class="item-image">${imageTag(item.images?.[0]?.url || categoryImage(item.category), item.title)}</div>` +
   `<div class="item-info"><span class="eyebrow">${escapeHtml(item.category)}</span><h3>${escapeHtml(item.title)}</h3>` +
-  `<b>${money(item.price)}</b><small>${Number(item.quantity)} available</small></div></a>`;
+  `<b>${money(item.price)}</b><small>${Number(item.quantity)} available</small></div></a>` +
+  `<button class="quiet add-to-cart" type="button" data-add-cart="${Number(item.id)}">Add to cart</button></article>`;
 
 /* ------------------------------------------------------------------ auth */
 async function initAuth() {
   const type = $('#signup-type');
   const buyerFields = $('#buyer-signup-fields');
   const sellerFields = $('#seller-signup-fields');
+  const verificationInput = $('#verify-token');
+  const savedVerificationToken = sessionStorage.getItem('dd_verification_token');
+  if (verificationInput && savedVerificationToken) verificationInput.value = savedVerificationToken;
   function syncSignupType() {
     const isSeller = type ? type.value === 'seller' : document.body.dataset.page === 'seller-register';
     if (buyerFields) {
@@ -106,7 +197,7 @@ async function initAuth() {
       $$('input,select,textarea', sellerFields).forEach(field => { field.disabled = !isSeller; });
     }
     const email = $('#signup-form [name="email"]');
-    if (email) email.placeholder = isSeller ? 'supplier@yourcompany.com' : 'you@university.edu';
+    if (email) email.placeholder = isSeller ? 'supplier@yourcompany.com' : 'you@gmail.com';
   }
   type?.addEventListener('change', syncSignupType);
   syncSignupType();
@@ -116,13 +207,16 @@ async function initAuth() {
       const data = await api('/auth/login', {method: 'POST', body: JSON.stringify(formData(e.currentTarget))});
       localStorage.setItem('dd_token', data.access_token);
       localStorage.setItem('dd_user', JSON.stringify(data.user));
-      location.href = '/static/marketplace.html';
+      location.href = data.user.is_admin ? '/static/admin-dashboard.html'
+        : data.user.account_type === 'seller' ? '/static/seller-dashboard.html'
+        : '/static/marketplace.html';
     });
   });
   $('#signup-form')?.addEventListener('submit', async e => {
     e.preventDefault();
     await attempt(async () => {
       const data = await api('/auth/signup', {method: 'POST', body: JSON.stringify(formData(e.currentTarget))});
+      sessionStorage.setItem('dd_verification_token', data.verification_token);
       $('#verify-token').value = data.verification_token;
       $('#verify-token').closest('details')?.setAttribute('open', '');
       notice(data.account_type === 'seller'
@@ -130,10 +224,30 @@ async function initAuth() {
         : 'Buyer account created. Your development verification token is ready below.', 'success');
     });
   });
+  $('#refresh-verification-token')?.addEventListener('click', async () => {
+    const signup = formData($('#signup-form'));
+    const email = String(signup.email || '').trim();
+    const password = String(signup.password || '');
+    if (!email || !password) {
+      notice('Enter the account email and password in the registration form, then request a fresh token.', 'error');
+      return;
+    }
+    await attempt(async () => {
+      const data = await api('/auth/verification-token', {
+        method: 'POST', body: JSON.stringify({email, password})
+      });
+      sessionStorage.setItem('dd_verification_token', data.verification_token);
+      $('#verify-token').value = data.verification_token;
+      notice('Fresh verification token ready. Select Verify email to continue.', 'success');
+    });
+  });
   $('#verify-form')?.addEventListener('submit', async e => {
     e.preventDefault();
     await attempt(async () => {
-      await api('/auth/verify', {method: 'POST', body: JSON.stringify({token: $('#verify-token').value})});
+      const submittedToken = ($('#verify-token')?.value || sessionStorage.getItem('dd_verification_token') || '').trim();
+      await api('/auth/verify', {method: 'POST', body: JSON.stringify({token: submittedToken})});
+      sessionStorage.removeItem('dd_verification_token');
+      $('#verify-form')?.setAttribute('hidden', '');
       notice(document.body.dataset.page === 'seller-register'
         ? 'Email verified. Your supplier profile now appears in Partners. Sign in to request seller approval.'
         : 'Email verified. You can now sign in.', 'success');
@@ -206,16 +320,12 @@ async function initListing() {
       `<p>${Number(item.length_cm)} × ${Number(item.width_cm)} × ${Number(item.height_cm)} cm · ${Number(item.weight_kg)} kg</p>` +
       `<p>Seller #${Number(seller.id)} · ${escapeHtml(seller.campus)} · ${escapeHtml(seller.dorm)} · ★ ${Number(seller.rating_avg).toFixed(1)}</p>` +
       `<label>Quantity <input id="quantity" type="number" min="1" max="${Number(item.quantity)}" value="1"></label>` +
-      `<button id="add-cart">Add to cart</button>` +
+      `<button id="add-cart" data-add-cart="${Number(item.id)}" data-add-quantity="#quantity">Add to cart</button>` +
       `<a class="quiet" href="/static/chat.html?peer=${Number(seller.id)}&listing=${Number(item.id)}">Message seller</a></div>`;
     const reviews = await api(`/sellers/${Number(seller.id)}/reviews`);
     const reviewHtml = reviews.map(r => `<p>★ ${Number(r.rating)} · ${escapeHtml(r.comment)} <small>— ${escapeHtml(r.buyer)}</small></p>`).join('');
     $('#detail').insertAdjacentHTML('afterend',
       `<section class="panel section"><h2>Seller reviews</h2>${reviewHtml || '<p class="muted">No reviews yet.</p>'}</section>`);
-    $('#add-cart').addEventListener('click', () => attempt(async () => {
-      await api('/cart/items', {method: 'POST', body: JSON.stringify({listing_id: item.id, quantity: Number($('#quantity').value)})});
-      notice('Added to your cart', 'success');
-    }));
   });
 }
 
@@ -224,13 +334,17 @@ async function initCart() {
   await attempt(async () => {
     const cart = await api('/cart');
     $('#cart-items').innerHTML = cart.items.map(x =>
-      `<article class="cart-row"><div><b>${escapeHtml(x.title)}</b><small>${money(x.price)} each</small></div>` +
+      `<article class="cart-row"><div class="cart-item-main">${imageTag(x.image, x.title)}<div><b>${escapeHtml(x.title)}</b><small>${money(x.price)} each</small></div></div>` +
       `<label>Qty <input data-qty="${Number(x.id)}" type="number" min="1" max="${Number(x.available_quantity)}" value="${Number(x.quantity)}"></label>` +
-      `<b>${money(x.item_subtotal)}</b><small>Shipping ${money(x.item_shipping_fee)}</small>` +
-      `<button class="quiet" data-remove="${Number(x.id)}">Remove</button></article>`).join('') || '<p class="empty">Your cart is empty.</p>';
+      `<div class="cart-line-total"><b>${money(x.item_subtotal)}</b><small>Shipping ${money(x.item_shipping_fee)}</small></div>` +
+      `<button class="quiet" data-remove="${Number(x.id)}">Remove</button></article>`).join('') ||
+      '<p class="empty">Your cart is empty. <a href="/static/marketplace.html">Browse products</a> to add something.</p>';
+    $('#cart-item-count').textContent = cart.items.reduce((total, item) => total + Number(item.quantity || 0), 0);
     $('#subtotal').textContent = money(cart.subtotal);
     $('#shipping').textContent = money(cart.shipping_fee);
     $('#grand-total').textContent = money(cart.grand_total);
+    $('#checkout-button').hidden = cart.items.length === 0;
+    refreshCartBadge();
     // Always re-render afterwards: on success totals refresh, on failure the input snaps back to the server value.
     $$('[data-qty]').forEach(input => input.onchange = () => attempt(() =>
       api(`/cart/items/${input.dataset.qty}`, {method: 'PUT', body: JSON.stringify({quantity: Number(input.value)})})
@@ -246,8 +360,10 @@ async function initCheckout() {
   const cart = await attempt(() => api('/cart'));
   if (!cart) return;
   $('#checkout-summary').innerHTML =
-    `<p>Items <b>${money(cart.subtotal)}</b></p><p>Shipping <b>${money(cart.shipping_fee)}</b></p>` +
-    `<h2>Grand total <strong>${money(cart.grand_total)}</strong></h2>`;
+    `<h2>Items in this order</h2>` +
+    cart.items.map(item => `<p class="checkout-line"><span>${escapeHtml(item.title)} × ${Number(item.quantity)}</span><b>${money(item.item_subtotal)}</b></p>`).join('') +
+    `<hr><p>Item subtotal <b>${money(cart.subtotal)}</b></p><p>Shipping <b>${money(cart.shipping_fee)}</b></p>` +
+    `<h2 class="total-grand">Grand total <strong>${money(cart.grand_total)}</strong></h2>`;
   if (!cart.items.length) {
     notice('Your cart is empty. Add something from the marketplace first.', 'error');
     $('#checkout-form').hidden = true;
@@ -302,10 +418,19 @@ async function initOrders() {
 
 /* ------------------------------------------------------------- seller */
 function listingRow(x) {
-  return `<div class="table-row"><div><b>${escapeHtml(x.title)}</b><small>${escapeHtml(x.status)} · ${Number(x.quantity)} in stock</small></div>` +
-    `<b>${money(x.price)}</b><button class="quiet" data-edit-listing="${Number(x.id)}">Edit</button>` +
-    `${x.status !== 'sold' ? `<button class="quiet" data-sold-listing="${Number(x.id)}">Mark sold</button>` : ''}` +
-    `<button class="quiet" data-delete-listing="${Number(x.id)}">Delete</button></div>`;
+  const statusLabels = {
+    pending_approval: 'Awaiting admin approval',
+    approved: 'Approved and live',
+    disapproved: 'Not approved',
+    sold: 'Sold'
+  };
+  const status = statusLabels[x.status] || String(x.status).replaceAll('_', ' ');
+  return '<div class="table-row"><div><b>' + escapeHtml(x.title) + '</b>' +
+    '<small>' + escapeHtml(status) + ' - ' + Number(x.quantity) + ' in stock</small>' +
+    '<small>' + Number(x.units_sold || 0) + ' sold - ' + money(x.gross_sales || 0) + ' gross sales</small></div>' +
+    '<b>' + money(x.price) + '</b><button class="quiet" data-edit-listing="' + Number(x.id) + '">Edit</button>' +
+    (x.status !== 'sold' ? '<button class="quiet" data-sold-listing="' + Number(x.id) + '">Mark sold</button>' : '') +
+    '<button class="quiet" data-delete-listing="' + Number(x.id) + '">Delete</button></div>';
 }
 
 const NEXT_STATUS = {awaiting_pickup: 'picked_up', picked_up: 'in_transit', in_transit: 'delivered'};
@@ -334,12 +459,26 @@ async function renderSeller() {
   $('#seller-request-panel').hidden = true;
   $('#buyer-role-message').hidden = true;
   $('#listing-form').closest('.panel').hidden = false;
+  const salesByListing = new Map();
+  data.sales.forEach(sale => {
+    const listingId = Number(sale.listing_id);
+    const totals = salesByListing.get(listingId) || {units_sold: 0, gross_sales: 0};
+    totals.units_sold += Number(sale.quantity || 0);
+    totals.gross_sales += Number(sale.gross || 0);
+    salesByListing.set(listingId, totals);
+  });
+  const pendingApprovalCount = data.listings.filter(item => item.status === 'pending_approval').length;
   $('#seller-summary').innerHTML =
-    `<div><b>${data.listings.length}</b><small>Listings</small></div><div><b>${money(data.gross_sales)}</b><small>Gross sales</small></div>` +
-    `<div><b>${money(data.revenue_after_commission)}</b><small>After commission</small></div>` +
-    `<div><b>${money(data.available_for_payout)}</b><small>Available for payout · ${money(data.paid_out)} paid out</small></div>` +
-    `<div><a class="button" href="/static/chat.html?peer=${Number(admin.id)}">Chat with admin</a></div>`;
-  $('#seller-listings').innerHTML = data.listings.map(listingRow).join('') || '<p>No listings yet.</p>';
+    '<div><b>' + data.listings.length + '</b><small>Listings</small></div>' +
+    '<div><b>' + pendingApprovalCount + '</b><small>Pending approvals</small></div>' +
+    '<div><b>' + money(data.gross_sales) + '</b><small>Gross sales</small></div>' +
+    '<div><b>' + money(data.revenue_after_commission) + '</b><small>After commission</small></div>' +
+    '<div><b>' + money(data.available_for_payout) + '</b><small>Available for payout - ' + money(data.paid_out) + ' paid out</small></div>' +
+    '<div><a class="button" href="/static/chat.html?peer=' + Number(admin.id) + '">Chat with admin</a></div>';
+  $('#seller-listings').innerHTML = data.listings.map(listing => {
+    const sales = salesByListing.get(Number(listing.id)) || {units_sold: 0, gross_sales: 0};
+    return listingRow({...listing, ...sales});
+  }).join('') || '<p>No listings yet.</p>';
   $('#seller-sales').innerHTML = data.sales.map(saleRow).join('') || '<p>No sales yet.</p>';
 
   $$('[data-edit-listing]').forEach(button => button.onclick = () => attempt(async () => {
@@ -533,6 +672,7 @@ async function initChat() {
 document.addEventListener('DOMContentLoaded', () => {
   renderCategories();
   renderNav();
+  setupCartControls();
   const pages = {auth: initAuth, marketplace: initMarketplace, listing: initListing, cart: initCart, checkout: initCheckout,
                  orders: initOrders, seller: initSeller, admin: initAdmin, chat: initChat, category: initCategoryPage,
                  'seller-register': initAuth, partners: initPartners};

@@ -1,9 +1,9 @@
-SIGNUP = {"email": "student@campus.edu", "password": "correct-horse", "campus": "UNZA", "dorm": "Hall A"}
+SIGNUP = {"email": "student@gmail.com", "password": "correct-horse", "campus": "UNZA", "dorm": "Hall A"}
 
 
 def test_signup_verify_and_login(client):
     created = client.post("/auth/signup", json=SIGNUP)
-    assert created.status_code == 201
+    assert created.status_code == 201, created.text
     login = {"email": SIGNUP["email"], "password": SIGNUP["password"]}
     assert client.post("/auth/login", json=login).status_code == 403  # not verified yet
     assert client.post("/auth/verify", json={"token": created.json()["verification_token"]}).status_code == 200
@@ -19,9 +19,46 @@ def test_wrong_password_and_duplicate_email(client):
     assert client.post("/auth/login", json={"email": SIGNUP["email"], "password": "wrong-password"}).status_code == 401
 
 
-def test_signup_rejects_non_university_email_and_overlong_password(client):
-    assert client.post("/auth/signup", json={**SIGNUP, "email": "student@gmail.com"}).status_code == 422
+def test_signup_rejects_non_gmail_email_and_overlong_password(client):
+    assert client.post("/auth/signup", json={**SIGNUP, "email": "student@campus.edu"}).status_code == 422
     assert client.post("/auth/signup", json={**SIGNUP, "password": "a" * 73}).status_code == 422
+
+
+def test_verification_accepts_token_with_surrounding_whitespace(client):
+    created = client.post("/auth/signup", json=SIGNUP)
+    assert created.status_code == 201
+    token = created.json()["verification_token"]
+    verified = client.post("/auth/verify", json={"token": f"  {token}\n"})
+    assert verified.status_code == 200
+
+
+def test_invalid_verification_token_can_be_refreshed_and_retried(client):
+    created = client.post("/auth/signup", json=SIGNUP)
+    assert created.status_code == 201
+    original_token = created.json()["verification_token"]
+
+    refreshed = client.post("/auth/verification-token", json={
+        "email": SIGNUP["email"], "password": SIGNUP["password"]
+    })
+    assert refreshed.status_code == 200
+    fresh_token = refreshed.json()["verification_token"]
+    assert fresh_token != original_token
+    assert client.post("/auth/verify", json={"token": original_token}).status_code == 400
+    assert client.post("/auth/verify", json={"token": fresh_token}).status_code == 200
+    assert client.post("/auth/login", json={
+        "email": SIGNUP["email"], "password": SIGNUP["password"]
+    }).status_code == 200
+
+
+def test_verified_account_cannot_refresh_verification_token(client):
+    created = client.post("/auth/signup", json=SIGNUP)
+    assert created.status_code == 201
+    token = created.json()["verification_token"]
+    assert client.post("/auth/verify", json={"token": token}).status_code == 200
+    refreshed = client.post("/auth/verification-token", json={
+        "email": SIGNUP["email"], "password": SIGNUP["password"]
+    })
+    assert refreshed.status_code == 409
 
 
 def test_foreign_seller_signup_is_separate_from_buyer_permissions(client):

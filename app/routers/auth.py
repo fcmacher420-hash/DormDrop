@@ -13,8 +13,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/signup", status_code=201)
 def signup(payload: SignupIn, db: Session = Depends(get_db)):
     email = payload.email.lower()
-    if payload.account_type == "buyer" and not email.endswith(settings.email_suffixes):
-        raise HTTPException(422, f"Use a university email ending in {', '.join(settings.email_suffixes)}")
+    if payload.account_type == "buyer":
+        domain = email.rsplit("@", 1)[-1]
+        allowed_domains = tuple(suffix.lower().lstrip(".@") for suffix in settings.email_suffixes)
+        if not any(domain == allowed or domain.endswith("." + allowed) for allowed in allowed_domains):
+            raise HTTPException(422, f"Use an email ending in {', '.join(settings.email_suffixes)}")
     if db.query(User).filter_by(email=email).first():
         raise HTTPException(409, "Email is already registered")
     token = new_token()
@@ -33,9 +36,22 @@ def signup(payload: SignupIn, db: Session = Depends(get_db)):
     return {"message": "Account created. Verify using the development token.",
             "account_type": payload.account_type, "verification_token": token}
 
+@router.post("/verification-token")
+def refresh_verification_token(payload: LoginIn, db: Session = Depends(get_db)):
+    user = db.query(User).filter_by(email=payload.email.lower()).first()
+    if not user or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(401, "Incorrect email or password")
+    if user.is_verified:
+        raise HTTPException(409, "Email is already verified. Please sign in.")
+    user.verification_token = new_token()
+    db.commit()
+    return {"message": "A fresh development verification token is ready.",
+            "verification_token": user.verification_token}
+
 @router.post("/verify")
 def verify(payload: VerifyIn, db: Session = Depends(get_db)):
-    user = db.query(User).filter_by(verification_token=payload.token).first()
+    submitted_token = payload.token.strip()
+    user = db.query(User).filter_by(verification_token=submitted_token).first()
     if not user:
         raise HTTPException(400, "Invalid verification token")
     user.is_verified = True
@@ -51,7 +67,7 @@ def login(payload: LoginIn, db: Session = Depends(get_db)):
     if user.is_suspended:
         raise HTTPException(403, "Account suspended")
     if not user.is_verified:
-        raise HTTPException(403, "Verify your .edu email before signing in")
+        raise HTTPException(403, "Verify your email before signing in")
     return {"access_token": create_access_token(user.id), "token_type": "bearer",
             "user": {"id": user.id, "email": user.email, "account_type": user.account_type,
                      "is_seller": user.is_seller, "is_admin": user.is_admin}}
